@@ -54,8 +54,12 @@ class DeepNav():
             return self.setDiscreteActions(actions)
         return self.setContActions(actions)
     
-    def getState(self):
-        pass
+    def getState(self, opt):
+        return {
+            'full' : self.getMinimalState,
+            'sensor' : self.getSensorialState,
+            'min' : self.getMinimalState
+        }[opt]
 
     
 
@@ -103,6 +107,12 @@ class DeepNav():
             action = self.isLegal(i, np.array(action))
             self.sim.setAgentPrefVelocity(i, tuple(action))
 
-    
+    def getFullState(self):
+        pass
+
+    def getSensorialState(self):
+        pass
+    def getMinimalState(self):
+        pass 
 
 DeepNav(2, 0)
