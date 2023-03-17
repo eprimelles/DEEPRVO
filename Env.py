@@ -68,13 +68,57 @@ class DeepNav():
         for i in range(self.n_agents):
             self.sim.setAgentPosition(i, self.positions[i])
         self.__episode_ended = False
+        self.T = 0
         self.__state = self.getState()()
         return self.__state
+    
+    def step(self, actions):
+        self.act(actions)
+        self.sim.doStep()
+        self.setState()
+        rwd = self.calculate_global_rwd() + self.calculate_local_rwd()
+        self.T += 1
+        return self.__state, rwd, self.isDone()
 
+    def getObservationSpace(self):
+        return len(self.getState()()[0])
+    
+    def getActionSpace(self):
+        if self.discrete:
+            return 9
+        return 2
     # Utility functions
+    def calculate_local_rwd(self):
+        rwd = [0] * self.n_agents
+        for i in range(self.n_agents):
+            rwd[i] -= self.calculateDist(self.sim.getAgentPosition(i), self.goals[i]) / self.max_dis
+            if self.agentDone(i):
+                rwd[i] += 1
+        return np.array(rwd)
+        
+    def calculate_global_rwd(self):
+        if self.success:
+            return - self.T
+        return 0
+    def isDone(self):
+        
+        for i in range(self.n_agents):
+            if not self.agentDone(i):
+                self.success == False
+                return False
+        self.success == True
+        return True
+    
+
+    def agentDone(self, agent):
+        pos = self.sim.getAgentPosition(agent)
+        return self.calculateDist(pos, self.goals[agent]) < self.radius
+    def setState(self):
+        self.__state = self.getState()()
+
     def normalize(self, x):
         x = np.array(x)
-        norm = np.linalg(x)
+        norm = np.linalg.norm(x)
 
         if norm == 0:
             return x
@@ -94,10 +138,10 @@ class DeepNav():
         return np.hypot(a[0] - b[0], a[1] - b[1])
     
     def isLegal(self, agent, action):
-        pos = np.array(self.sim.getAgentPos(agent))
+        pos = np.array(self.sim.getAgentPosition(agent))
         final_pos = pos + action * self.timestep
 
-        if final_pos[0] > self.width or final_pos[1] > self.height:
+        if np.abs(final_pos[0]) > self.width or np.abs(final_pos[1]) > self.height:
             return (0, 0)
         return action
     def setDiscreteActions(self, actions):
@@ -105,7 +149,7 @@ class DeepNav():
 
         for i, a in enumerate (actions):
             action = self.normalize(self.p_actions[a])
-            action = self.isLeagal(i, np.array(action))
+            action = self.isLegal(i, np.array(action))
             self.sim.setAgentPrefVelocity(i, tuple(action))
 
     def setContActions(self , actions):
@@ -191,5 +235,9 @@ class DeepNav():
         state.append(self.sim.getAgentVelocity(agent)[1])
         return state
 
-env = DeepNav(2, 0, opt='sensor')
-print(env.reset())
+env = DeepNav(2, 0)
+s = env.reset()
+done = False
+while not done:
+    a = [4, 1]
+    print(env.step(a)), input()
