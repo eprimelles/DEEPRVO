@@ -52,8 +52,9 @@ class DeepNav():
     def act(self, actions):
         if self.discrete:
             return self.setDiscreteActions(actions)
-        return self.setContActions(actions)
+        return self.setContActions(actions)    
     
+
     def getState(self):
         
         return {
@@ -235,9 +236,9 @@ class DeepNav():
         state.append(self.sim.getAgentVelocity(agent)[1])
         return state
 
-env = DeepNav(2, 0)
-s = env.reset()
-done = False
-while not done:
-    a = [4, 1]
-    print(env.step(a)), input()
+# env = DeepNav(2, 0)
+# s = env.reset()
+# done = False
+# while not done:
+#     a = [4, 1]
+#     print(env.step(a)), input()
