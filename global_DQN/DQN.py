@@ -56,3 +56,6 @@ class global_DQN:
         self.optimizer.apply_gradients(zip(grad, self.model.trainable_variables))
         return loss
 
+    def apply_decay(self, decay):
+
+        self.epsilon -= decay
