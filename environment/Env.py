@@ -1,6 +1,6 @@
 import numpy as np
 import rvo2
-from Circle import Circle
+from environment.Circle import Circle
 from typing import Any
 class DeepNav():    
     def __init__(self, n_agents : int, scenario : int, discrete: bool = True, width : int = 255, height : int = 255, timestep : float = 0.25 , neighbor_dists : float = 1.0, 
@@ -79,6 +79,7 @@ class DeepNav():
         self.setState()
         rwd = self.calculate_global_rwd() + self.calculate_local_rwd()
         self.T += 1
+        
         return self.__state, rwd, self.isDone()
 
     def getObservationSpace(self):
@@ -91,10 +92,14 @@ class DeepNav():
     # Utility functions
     def calculate_local_rwd(self):
         rwd = [0] * self.n_agents
+        
         for i in range(self.n_agents):
-            rwd[i] -= self.calculateDist(self.sim.getAgentPosition(i), self.goals[i]) / self.max_dis
+            rwd[i] -= self.calculateDist(self.sim.getAgentPosition(i), self.goals[i]) / self.max_dis[i]
+            
             if self.agentDone(i):
                 rwd[i] += 1
+
+            
         return np.array(rwd)
         
     def calculate_global_rwd(self):
@@ -236,9 +241,11 @@ class DeepNav():
         state.append(self.sim.getAgentVelocity(agent)[1])
         return state
 
-# env = DeepNav(2, 0)
-# s = env.reset()
-# done = False
-# while not done:
-#     a = [4, 1]
-#     print(env.step(a)), input()
+
+if __name__ == '__main__':
+
+    env = DeepNav(2, 0)
+    s = env.reset()
+
+    s, r, done = env.step((1, 0))
+    print(r)
