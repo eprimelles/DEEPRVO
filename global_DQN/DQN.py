@@ -61,7 +61,6 @@ class global_DQN:
         self.epsilon -= decay
 
     def train(self, env, replay_buffer, n_episodes=50000):
-
         s = env.reset()
         loss = 0
         losses = []

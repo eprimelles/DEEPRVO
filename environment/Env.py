@@ -73,7 +73,7 @@ class DeepNav():
         self.__state = self.getState()()
         return self.__state
     
-    def step(self, actions):
+    def step(self, actions):        
         self.act(actions)
         self.sim.doStep()
         self.setState()
@@ -151,9 +151,8 @@ class DeepNav():
             return (0, 0)
         return action
     def setDiscreteActions(self, actions):
-        assert self.discrete
-
-        for i, a in enumerate (actions):
+        assert self.discrete        
+        for i, a in enumerate(actions):            
             action = self.normalize(self.p_actions[a])
             action = self.isLegal(i, np.array(action))
             self.sim.setAgentPrefVelocity(i, tuple(action))
