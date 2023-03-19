@@ -28,7 +28,7 @@ class global_DQN:
         return self.act(s)
         
     def act(self, s):
-        return np.argmax(self.model.predict(s), 1)
+        return np.squeeze(np.argmax(self.model.predict(s, verbose=0), 2))
     
     def update_target(self):
         self.t_model = clone_model(self.model)
@@ -67,10 +67,10 @@ class global_DQN:
         losses = []
         for i in range(n_episodes):    
             while 1:
-
-                a = self.poliy(s[0])
+                s_e = np.reshape(s[0], (1, len(s[0])))
+                a = self.poliy(s_e)
                 s_1, rwd, done = env.step(a)
-                print(s_1), input()
+                
                 replay_buffer.store(s[0], a, s_1[0], rwd, done)
 
                 s = s_1
@@ -98,7 +98,8 @@ class global_DQN:
         done = False
 
         while not done:
-            a = self.act(s[0])
+            s_e = np.reshape(s[0], (1, len(s_e)))
+            a = self.act(s_e)
             s, r, done = env.step(a)
 
         return r, done
