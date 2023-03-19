@@ -86,6 +86,20 @@ class global_DQN:
                         self.save()
                         print(f'Episode {i} / {n_episodes}, Last reward: {rwd}, Epsilon: {self.epsilon}, Loss: {loss} ')
 
+                        rr, dd = self.test(env)
+
+                        n = 'not'
+                        print(f'Test episode ended with reward {rr}. Ended with {(not dd) * n} succes')
+
+    def test(self, env):
+        s = env.reset()
+        done = False
+
+        while not done:
+            a = self.act(s[0])
+            s, r, done = env.step(a)
+
+        return r, done
 
 
 
