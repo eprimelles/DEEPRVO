@@ -14,7 +14,7 @@ class Replay_Buffer:
         self.indx = 0
         self.ready = False    
 
-    def store(self, s, s_1,  a, r, done):
+    def store(self, s, a, s_1, r, done):
 
         i = self.indx % self.max_lenght
 
