@@ -84,6 +84,7 @@ class global_DQN:
                     losses.append(loss)
                     if i % 1000 == 0:
                         self.save()
+                        self.update_target()
                         print(f'Episode {i} / {n_episodes}, Last reward: {rwd}, Epsilon: {self.epsilon}, Loss: {loss} ')
 
                         rr, dd = self.test(env)
