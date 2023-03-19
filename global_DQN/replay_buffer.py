@@ -17,7 +17,7 @@ class Replay_Buffer:
     def store(self, s, a, s_1, r, done):
 
         i = self.indx % self.max_lenght
-
+        
         self.state_buffer[i] = np.array(s)
         self.state_1_buffer[i] = s_1
         self.action_buffer[i] = a

@@ -14,3 +14,11 @@ def Q_Net (input_dim, output_dim):
     outputs = Reshape(output_dim)(outputs)
 
     return Model(inputs, outputs)
+
+
+if __name__ == '__main__':
+
+    import numpy as np
+    x = Q_Net(8, (2, 8))
+    data = np.random.random((1, 8))
+    print( np.squeeze(np.argmax(x.predict(data), 2)))
