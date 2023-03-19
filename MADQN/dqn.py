@@ -5,9 +5,10 @@ import numpy as np
 import random
 from collections import namedtuple, deque
 import torch.optim as optim
-from Env import DeepNav
 import math
 from itertools import count
+
+from environment.Env import DeepNav
 
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
@@ -52,7 +53,22 @@ def optimize_model(replayBuffer, optimizer):
     non_final_next_states = T.cat([s for s in batch.next_state
                                                 if s is not None])
     state_batch = T.cat(batch.state)
-    action_batch = T.cat(batch.action)´
+    action_batch = T.cat(batch.action)
+    reward_batch = T.cat(batch.reward)
+
+    # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
+    # columns of actions taken. These are the actions which would've been taken
+    # for each batch state according to policy_net
+    state_action_values = policy_net(state_batch).gather(1, action_batch)
+
+    # Compute V(s_{t+1}) for all next states.
+    # Expected values of actions for non_final_next_states are computed based
+    # on the "older" target_net; selecting their best reward with max(1)[0].
+    # This is merged based on the mask, such that we'll have either the expected
+    # state value or 0 in case the state was final.
+    next_state_values = T.zeros(BATCH_SIZE, device=device)
+    with T.no_grad():
+        next_state_values[non_final_mask] = target_net(non_final_next_states).max(1)[0]
     # state value or 0 in case the state was final.
     next_state_values = T.zeros(BATCH_SIZE, device=device)
     with T.no_grad():
