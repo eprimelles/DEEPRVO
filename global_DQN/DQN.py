@@ -59,3 +59,33 @@ class global_DQN:
     def apply_decay(self, decay):
 
         self.epsilon -= decay
+
+    def train(self, env, replay_buffer, n_episodes=50000):
+
+        s = env.reset()
+        loss = 0
+        losses = []
+        for i in range(n_episodes):    
+            while 1:
+
+                a = self.poliy(s[0])
+                s_1, rwd, done = env.step(a)
+                replay_buffer.store(s[0], a, rwd, s_1[0], done)
+
+                s = s_1
+
+                if replay_buffer.isReady():
+                    states, actions, rewards, states_1, dones = replay_buffer.sample()
+                    loss = self.learn(states, actions, rewards, s_1, dones)
+                    
+                if done:
+                    s = env.reset()
+                    self.apply_decay(1/(n_episodes + 100))
+                    losses.append(loss)
+                    if i % 1000 == 0:
+                        self.save()
+                        print(f'Episode {i} / {n_episodes}, Last reward: {rwd}, Epsilon: {self.epsilon}, Loss: {loss} ')
+
+
+
+
