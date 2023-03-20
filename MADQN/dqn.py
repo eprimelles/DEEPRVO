@@ -7,9 +7,10 @@ from collections import namedtuple, deque
 import torch.optim as optim
 import math
 from itertools import count
-
-Transition = namedtuple('Transition',
-                        ('state', 'action', 'next_state', 'reward'))
+# from ReplayMemory import ReplayMemory
+import utils
+# Transition = namedtuple('Transition',
+                        # ('state', 'action', 'next_state', 'reward'))
 BATCH_SIZE = 128
 GAMMA = 0.99
 EPS_START = 0.9
@@ -18,38 +19,36 @@ EPS_DECAY = 1000
 TAU = 0.005
 LR = 1e-4
 
-device = T.device("cuda" if T.cuda.is_available() else "cpu")
 
-class ReplayMemory(object):
-    def __init__(self, capacity):
-        self.memory = deque([], maxlen=capacity)
-
-    def push(self, *args):        
-        self.memory.append(Transition(*args))
-
-    def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
-
-    def __len__(self):
-        return len(self.memory)
 
 class DQN_RVO(nn.Module):
-    def __init__(self, n_observations, n_actions) -> None:
+    def __init__(self, state_space, action_space) -> None:
         super().__init__()
         self.network = nn.Sequential(
-            nn.Linear(n_observations, 128),
+            nn.Linear(state_space, 128),
             nn.ReLU(),
             nn.Linear(128,128),
             nn.ReLU(),
-            nn.Linear(128, n_actions))
+            nn.Linear(128, action_space))
 
     def forward(self, x):
         x = self.network(x)
         return x
 
 class MADQN(object):
-    def __init__(self) -> None:
-        self.steps_done = 0        
+    def __init__(self, n_agents, state_space, action_space, epsilon=0.8, gamma=0.99, lr=1e-04, path='') -> None:
+        self.n_agents = n_agents
+        self.state_space = state_space
+        self.steps_done = 0 
+        self.action_space = action_space
+        self.epsilon = epsilon
+        self.gamma= gamma  
+        self.device = T.device("cuda" if T.cuda.is_available() else "cpu")
+        self.policy_net = DQN_RVO(state_space=state_space, action_space=(n_agents, action_space)).to(self.device)
+        self.target_net = DQN_RVO(state_space=state_space, action_space=(n_agents, action_space)).to(self.device)
+
+        self.target_net.load_state_dict(self.policy_net.state_dict())
+        self.optimizer = optim.AdamW(self.policy_net.parameters(), lr=lr, amsgrad=True)     
 
     def select_action(self, state, env, policy_net):        
         sample = random.random()
@@ -63,7 +62,7 @@ class MADQN(object):
                 # found, so we pick action with the larger expected reward.
                 return policy_net(state).max(1)[1].view(1, 1).cpu().numpy()
         else:
-            return T.tensor([[random.sample(sorted(env.p_actions),1)]], device=device, dtype=T.long).cpu().numpy()
+            return T.tensor([[random.sample(sorted(env.p_actions),1)]], device=self.device, dtype=T.long).cpu().numpy()
         
     
     def optimize_model(self, replayBuffer, optimizer, policy_net, target_net):
@@ -78,7 +77,7 @@ class MADQN(object):
         # Compute a mask of non-final states and concatenate the batch elements
         # (a final state would've been the one after which simulation ended)
         non_final_mask = T.tensor(tuple(map(lambda s: s is not None,
-                                            batch.next_state)), device=device, dtype=T.bool)
+                                            batch.next_state)), device=self.device, dtype=T.bool)
         non_final_next_states = T.cat([s for s in batch.next_state
                                                     if s is not None])
         state_batch = T.cat(batch.state)
@@ -95,11 +94,11 @@ class MADQN(object):
         # on the "older" target_net; selecting their best reward with max(1)[0].
         # This is merged based on the mask, such that we'll have either the expected
         # state value or 0 in case the state was final.
-        next_state_values = T.zeros(BATCH_SIZE, device=device)
+        next_state_values = T.zeros(BATCH_SIZE, device=self.device)
         with T.no_grad():
             next_state_values[non_final_mask] = target_net(non_final_next_states).max(1)[0]
         # state value or 0 in case the state was final.
-        next_state_values = T.zeros(BATCH_SIZE, device=device)
+        next_state_values = T.zeros(BATCH_SIZE, device=self.device)
         with T.no_grad():
             next_state_values[non_final_mask] = target_net(non_final_next_states).max(1)[0]
         # Compute the expected Q values
@@ -116,58 +115,44 @@ class MADQN(object):
         T.nn.utils.clip_grad_value_(policy_net.parameters(), 100)
         optimizer.step()
     
-    def train(self, env):
+    def train(self, env, replay_buffer, n_episodes=50000):
         state = env.reset()
-        n_observations = len(state)
-        n_actions = len(env.p_actions)
-
-        policy_net = DQN_RVO(n_observations=n_observations, n_actions=n_actions).to(device)
-        target_net = DQN_RVO(n_observations=n_observations, n_actions=n_actions).to(device)
-
-        target_net.load_state_dict(policy_net.state_dict())
-        optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
-        replayBuffer = ReplayMemory(10000)
-        
+        loss = 0
+        losses = []
         self.steps_done = 0
+        episode_durations = []        
 
-        episode_durations = []
-
-        if T.cuda.is_available():
-            num_episodes = 600
-        else:
-            num_episodes = 50
-
-        for i_episode in range(num_episodes):
+        for i_episode in range(n_episodes):
             # Initialize the environment and get it's state
             state = env.reset()
-            state = T.tensor(state, dtype=T.float32, device=device).unsqueeze(0)
+            state = T.tensor(state, dtype=T.float32, device=self.device).unsqueeze(0)
             for t in count():
-                action = self.select_action(state, env, policy_net)                
+                action = self.select_action(state, env, self.policy_net)                
                 observation, reward, terminated  = env.step(action)
-                reward = T.tensor([reward], device=device)
+                reward = T.tensor([reward], device=self.device)
                 done = terminated
 
                 if terminated:
                     next_state = None
                 else:
-                    next_state = T.tensor(observation, dtype=T.float32, device=device).unsqueeze(0)
+                    next_state = T.tensor(observation, dtype=T.float32, device=self.device).unsqueeze(0)
 
                 # Store the transition in memory
-                replayBuffer.push(state, action, next_state, reward)
+                replay_buffer.push(state, action, next_state, reward)
 
                 # Move to the next state
                 state = next_state
 
                 # Perform one step of the optimization (on the policy network)
-                self.optimize_model(replayBuffer, optimizer, policy_net, target_net)
+                self.optimize_model(replay_buffer, self.optimizer, self.policy_net, self.target_net)
 
                 # Soft update of the target network's weights
                 # θ′ ← τ θ + (1 −τ )θ′
-                target_net_state_dict = target_net.state_dict()
-                policy_net_state_dict = policy_net.state_dict()
+                target_net_state_dict = self.target_net.state_dict()
+                policy_net_state_dict = self.policy_net.state_dict()
                 for key in policy_net_state_dict:
                     target_net_state_dict[key] = policy_net_state_dict[key]*TAU + target_net_state_dict[key]*(1-TAU)
-                target_net.load_state_dict(target_net_state_dict)
+                self.target_net.load_state_dict(target_net_state_dict)
 
                 if done:
                     episode_durations.append(t + 1)            
