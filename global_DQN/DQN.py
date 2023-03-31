@@ -15,7 +15,7 @@ class global_DQN:
         self.action_space = action_space
         self.epsilon = epsilon
         self.gamma= gamma
-
+        self.path = path
         self.model = Q_Net(self.state_space, (self.n_agents, self.action_space))
         self.t_model = clone_model(self.model)
         self.optimizer = Adam(learning_rate=lr)
@@ -34,10 +34,10 @@ class global_DQN:
         self.t_model = clone_model(self.model)
 
     def save(self):
-        self.model.save(f'{self.path}/gloabal_dqn.h5')
+        self.model.save(f'{self.path}gloabal_dqn.h5')
 
     def load(self):
-        self.model = load_model(f'{self.path}/gloabal_dqn.h5')
+        self.model = load_model(f'{self.path}gloabal_dqn.h5')
 
     @tf.function
     def learn(self, s, a, r, s_1, done):
@@ -83,6 +83,8 @@ class global_DQN:
                     s = env.reset()
                     self.apply_decay(1/(n_episodes + 100))
                     losses.append(loss)
+                    print(f'Episode {i} / {n_episodes}, Last reward: {rwd}, Epsilon: {self.epsilon}, Loss: {loss} ')
+
                     if i % 1000 == 0:
                         self.save()
                         self.update_target()
@@ -92,13 +94,14 @@ class global_DQN:
 
                         n = 'not'
                         print(f'Test episode ended with reward {rr}. Ended with {(not dd) * n} succes')
+                    break
 
     def test(self, env):
         s = env.reset()
         done = False
-
+        
         while not done:
-            s_e = np.reshape(s[0], (1, len(s_e)))
+            s_e = np.reshape(s[0], (1, len(s[0])))
             a = self.act(s_e)
             s, r, done = env.step(a)
 

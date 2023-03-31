@@ -5,7 +5,7 @@ from typing import Any
 class DeepNav():    
     def __init__(self, n_agents : int, scenario : int, discrete: bool = True, width : int = 255, height : int = 255, timestep : float = 0.25 , neighbor_dists : float = 1.0, 
                  time_horizont : float=10.0, time_horizont_obst : float = 20.0, radius : float=2.0, 
-                 max_speed : float=3.5, opt : str = 'full') -> None:
+                 max_speed : float=3.5, opt : str = 'full', H : int = 500) -> None:
         super().__init__()
         
         
@@ -23,7 +23,7 @@ class DeepNav():
         self. sim = rvo2.PyRVOSimulator(self.timestep, self.neighbor_dists, self.max_neig, self.time_horizont, self.time_horizont_obst, self.radius, self.max_speed)
         self.time = 0.0
         self.T = 0
-               
+        self.H = H       
         
         self.positions, self.goals, self.obstacles = self.getScenario().getAgentPosition()
         self.__state = np.zeros((self.n_agents, 4 * self.n_agents))
@@ -108,11 +108,14 @@ class DeepNav():
         return 0
     def isDone(self):
         
+        if self.T > self.H:
+            self.success = False
+            return True
         for i in range(self.n_agents):
             if not self.agentDone(i):
-                self.success == False
+                self.success = False
                 return False
-        self.success == True
+        self.success = True
         return True
     
 

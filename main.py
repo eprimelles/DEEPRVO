@@ -18,3 +18,4 @@ ALGORITHMS = {
 program, rb = ALGORITHMS[ALGORITHM]
 
 program.train(ENV, rb, N_EPISODES)
+#print(program.test(ENV))
