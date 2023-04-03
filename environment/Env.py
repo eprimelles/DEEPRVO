@@ -49,6 +49,8 @@ class DeepNav():
             } 
    
         self.opt = opt
+        self.baseline = self.getBaseline()
+        
     def act(self, actions):
         if self.discrete:
             return self.setDiscreteActions(actions)
@@ -79,6 +81,7 @@ class DeepNav():
         self.setState()
         rwd = self.calculate_global_rwd() + self.calculate_local_rwd()
         self.T += 1
+        self.time += self.timestep
         
         return self.__state, rwd, self.isDone()
 
@@ -104,7 +107,7 @@ class DeepNav():
         
     def calculate_global_rwd(self):
         if self.success:
-            return - self.T
+            return  self.baseline - self.time
         return 0
     def isDone(self):
         
@@ -245,7 +248,21 @@ class DeepNav():
         state.append(self.sim.getAgentVelocity(agent)[1])
         return state
 
+    def getBaseline(self):
+        self.reset()
+        t = 0
+        while not self.isDone():
 
+            for i in range(self.n_agents):
+                pos = self.sim.getAgentPosition(i)
+                print(pos)
+                pref_vel = [0] * 2
+                pref_vel[0] = self.goals[i][0] - pos[0]
+                pref_vel[1] = self.goals[i][1] - pos[1]
+                self.sim.setAgentPrefVelocity(i, tuple(pref_vel))
+                self.sim.doStep()
+                t += self.timestep
+        return t
 if __name__ == '__main__':
 
     env = DeepNav(2, 0)
