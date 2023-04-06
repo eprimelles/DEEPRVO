@@ -20,15 +20,20 @@ class global_DQN:
         self.t_model = clone_model(self.model)
         self.optimizer = Adam(learning_rate=lr)
 
-    def poliy(self, s):
+    def policy(self, s):
 
-        if self.epsilon > np.random.rand():
+        opt = np.random.uniform(0, 1, 1)[0]
+        
+        if self.epsilon > opt:
+            
             return np.random.randint(0, self.action_space, self.n_agents)
         
-        return self.act(s)
         
+        return np.array(self.act(s))
+        
+    @tf.function
     def act(self, s):
-        return np.squeeze(np.argmax(self.model.predict(s, verbose=0), 2))
+        return tf.squeeze(tf.argmax(self.model(s, training=False), 2))
     
     def update_target(self):
         self.t_model = clone_model(self.model)
@@ -68,7 +73,10 @@ class global_DQN:
         for i in range(n_episodes):    
             while 1:
                 s_e = np.reshape(s[0], (1, len(s[0])))
-                a = self.poliy(s_e)
+                a = self.policy(s_e)
+                
+
+                
                 s_1, rwd, done = env.step(a)
                 
                 replay_buffer.store(s[0], a, s_1[0], rwd, done)
@@ -76,6 +84,7 @@ class global_DQN:
                 s = s_1
 
                 if replay_buffer.isReady():
+                    
                     states, actions, rewards, states_1, dones = replay_buffer.sample()
                     loss = self.learn(states, actions, rewards, states_1, dones)
                     
@@ -88,12 +97,12 @@ class global_DQN:
                     if i % 1000 == 0:
                         self.save()
                         self.update_target()
-                        print(f'Episode {i} / {n_episodes}, Last reward: {rwd}, Epsilon: {self.epsilon}, Loss: {loss} ')
+                        #print(f'Episode {i} / {n_episodes}, Last reward: {rwd}, Epsilon: {self.epsilon}, Loss: {loss} ')
 
-                        rr, dd = self.test(env)
+                        #rr, dd = self.test(env)
 
-                        n = 'not'
-                        print(f'Test episode ended with reward {rr}. Ended with {(not dd) * n} succes')
+                        #n = 'not'
+                        #print(f'Test episode ended with reward {rr}. Ended with {(not dd) * n} succes')
                     break
 
     def test(self, env):

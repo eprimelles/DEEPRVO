@@ -107,7 +107,7 @@ class DeepNav():
         
     def calculate_global_rwd(self):
         if self.success:
-            return  self.baseline - self.time
+            return 0 #self.baseline - self.time
         return 0
     def isDone(self):
         
@@ -255,7 +255,7 @@ class DeepNav():
 
             for i in range(self.n_agents):
                 pos = self.sim.getAgentPosition(i)
-                print(pos)
+                
                 pref_vel = [0] * 2
                 pref_vel[0] = self.goals[i][0] - pos[0]
                 pref_vel[1] = self.goals[i][1] - pos[1]
