@@ -1,6 +1,6 @@
 import numpy as np
 import rvo2
-from environment.Circle import Circle
+from .Circle import Circle
 from typing import Any
 class DeepNav():    
     def __init__(self, n_agents : int, scenario : int, discrete: bool = True, width : int = 255, height : int = 255, timestep : float = 0.25 , neighbor_dists : float = 1.0, 
@@ -26,6 +26,7 @@ class DeepNav():
         self.H = H       
         
         self.positions, self.goals, self.obstacles = self.getScenario().getAgentPosition()
+        
         self.__state = np.zeros((self.n_agents, 4 * self.n_agents))
         self.__episode_ended = False
         self.__setupScenario()
@@ -49,7 +50,9 @@ class DeepNav():
             } 
    
         self.opt = opt
-        self.baseline = self.getBaseline()
+         
+        #self.baseline, self.baseline_ts = self.getBaseline()
+        
         
     def act(self, actions):
         if self.discrete:
@@ -72,18 +75,22 @@ class DeepNav():
             self.sim.setAgentPosition(i, self.positions[i])
         self.__episode_ended = False
         self.T = 0
+        self.time = 0.0
         self.__state = self.getState()()
         return self.__state
     
     def step(self, actions):
+        pos = [self.sim.getAgentPosition(i) for i in range(self.n_agents)]
         self.act(actions)
+       
         self.sim.doStep()
+        
         self.setState()
-        rwd = self.calculate_global_rwd() + self.calculate_local_rwd()
+        rwd = self.calculate_global_rwd() + self.calculate_local_rwd(pos)
         self.T += 1
         self.time += self.timestep
-        
-        return self.__state, rwd, self.isDone()
+        done = self.isDone()
+        return self.__state, rwd, self.success , done
 
     def getObservationSpace(self):
         return len(self.getState()()[0])
@@ -93,21 +100,23 @@ class DeepNav():
             return 9
         return 2
     # Utility functions
-    def calculate_local_rwd(self):
+    def calculate_local_rwd(self, pos_old):
         rwd = [0] * self.n_agents
         
         for i in range(self.n_agents):
-            rwd[i] -= self.calculateDist(self.sim.getAgentPosition(i), self.goals[i]) / self.max_dis[i]
+            pos = self.sim.getAgentPosition(i)
+            dist = self.calculateDist(self.goals[i], pos)
+            o_dist = self.calculateDist(self.goals[i], pos_old[i])
+            rwd[i] -= dist - o_dist
+        
             
-            if self.agentDone(i):
-                rwd[i] += 1
-
             
         return np.array(rwd)
         
     def calculate_global_rwd(self):
         if self.success:
-            return 0 #self.baseline - self.time
+            return 1 - self.time / self.baseline
+            
         return 0
     def isDone(self):
         
@@ -166,12 +175,21 @@ class DeepNav():
             self.sim.setAgentPrefVelocity(i, tuple(action))
 
     def setContActions(self , actions):
+        
         assert not self.discrete
+        for i, a in enumerate(actions):
+            #v0_x, v0_y = self.getStraightVel(i)
 
-        for i, a in enumerate (actions):
-            action = self.isLegal(i, np.array(action))
-            self.sim.setAgentPrefVelocity(i, tuple(action))
-
+            #v_x = v0_x + a[0]
+            #v_y = v0_y + a[1]
+            #v_pref = tuple(self.normalize((v_x, v_y)))
+            
+            self.sim.setAgentPrefVelocity(i, tuple(a))
+        
+    def getStraightVel(self, agnt):
+        pos = self.sim.getAgentPosition(agnt)
+        return self.goals[agnt][0] - pos[0], self.goals[agnt][1] - pos[1]
+        
     def getFullState(self):
         '''Return every agent position and pref vel'''
         return [
@@ -191,7 +209,7 @@ class DeepNav():
     def getAgentFullState(self, agent):
         
         state = []
-        state.append(self.sim.getAgentPosition(agent)[0])
+        '''state.append(self.sim.getAgentPosition(agent)[0])
         state.append(self.sim.getAgentPosition(agent)[1])
         state.append(self.sim.getAgentVelocity(agent)[0])
         state.append(self.sim.getAgentVelocity(agent)[1])
@@ -203,7 +221,25 @@ class DeepNav():
             state.append(self.sim.getAgentPosition(i)[0])
             state.append(self.sim.getAgentPosition(i)[1])
             state.append(self.sim.getAgentVelocity(i)[0])
-            state.append(self.sim.getAgentVelocity(i)[1])
+            state.append(self.sim.getAgentVelocity(i)[1])'''
+        pos = []
+        vel = []
+
+        pos.append(self.sim.getAgentPosition(agent)[0])
+        pos.append(self.sim.getAgentPosition(agent)[1])
+        vel.append(self.sim.getAgentPrefVelocity(agent)[0])
+        vel.append(self.sim.getAgentPrefVelocity(agent)[1])
+        for i in range(self.n_agents):
+
+            if i == agent:
+                continue
+            pos.append(self.sim.getAgentPosition(i)[0])
+            pos.append(self.sim.getAgentPosition(i)[1])
+            vel.append(self.sim.getAgentPrefVelocity(i)[0])
+            vel.append(self.sim.getAgentPrefVelocity(i)[1])
+        
+        state = np.concatenate((pos, vel, self.goals[agent]), axis=0)
+        
         return state
 
     def getAgentSensorialState(self, agent):
@@ -251,22 +287,34 @@ class DeepNav():
     def getBaseline(self):
         self.reset()
         t = 0
+        #td = 0
+        
         while not self.isDone():
 
-            for i in range(self.n_agents):
-                pos = self.sim.getAgentPosition(i)
+            a = [(0, 0)] * self.n_agents
+
+
+            self.step(a)    
                 
-                pref_vel = [0] * 2
-                pref_vel[0] = self.goals[i][0] - pos[0]
-                pref_vel[1] = self.goals[i][1] - pos[1]
-                self.sim.setAgentPrefVelocity(i, tuple(pref_vel))
-                self.sim.doStep()
-                t += self.timestep
-        return t
+            
+            #print(f'{self.baseline_ts},{pref_vel}, {self.sim.getAgentPosition(0)}'), input()
+                #td += 1
+        
+        
+        
+        yield self.time 
+        yield self.T
+        self.reset()
+
 if __name__ == '__main__':
-
+    import matplotlib.pyplot as plt
     env = DeepNav(2, 0)
-    s = env.reset()
+    print(env.reset())
+    #print(env.time, env.T)
+    #s = env.reset()
+    #done = False
+    #while not done:
 
-    s, r, done = env.step((1, 0))
-    print(r)
+    ##    s, r, truncnation, done = env.step(((0, 0), (0, 0)))
+    #    print(r, truncnation, done)
+    
