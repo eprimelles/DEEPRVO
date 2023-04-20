@@ -44,7 +44,7 @@ class DQN_Agent:
         self.model.save(f'{self.path}tf_dqn_{self.id}.h5')
 
     def load(self):
-        self.model = load_model(f'{self.path}gloabal_dqn.h5')
+        self.model = load_model(f'{self.path}tf_dqn_{self.id}.h5')
 
     @tf.function
     def learn(self, s, a, r, s_1, done):

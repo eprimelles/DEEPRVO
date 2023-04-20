@@ -14,7 +14,7 @@ MAX_LENGTH = 10000
 BATCH_SIZE = 128
 ENV = DeepNav(N_AGENTS, 0)
 EVAL = True
-TRAIN = True
+TRAIN = False
 ALGORITHMS = {
 
     'globalDQN' : [global_DQN(2, N_AGENTS * 4 + 2, 9), Replay_Buffer(N_AGENTS * 4 + 2, N_AGENTS, MAX_LENGTH, BATCH_SIZE)],
