@@ -20,6 +20,7 @@ class Replay_Buffer:
         
         self.state_buffer[i] = np.array(s)
         self.state_1_buffer[i] = s_1
+        
         self.action_buffer[i] = a
         
         self.reward_buffer[i] = np.array(r) 

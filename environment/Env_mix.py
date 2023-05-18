@@ -2,14 +2,16 @@ import numpy as np
 import rvo2
 from .Circle import Circle
 from typing import Any
-class DeepNav():    
-    def __init__(self, n_agents : int, scenario : int, discrete: bool = True, width : int = 255, height : int = 255, timestep : float = 0.25 , neighbor_dists : float = 1.0, 
+class DeepNavMix():    
+    def __init__(self, n_agents : int, n_smarties : int, scenario : int, discrete: bool = True, width : int = 255, height : int = 255, timestep : float = 0.25 , neighbor_dists : float = 1.0, 
                  time_horizont : float=10.0, time_horizont_obst : float = 20.0, radius : float=2.0, 
                  max_speed : float=3.5, opt : str = 'full', H : int = 500) -> None:
         super().__init__()
         
         
         self.n_agents = n_agents
+        self.n_smarties = n_smarties
+        self.smarties = np.random.randint(0, self.n_agents, self.n_smarties)
         self.scenario = scenario
         self.width = width
         self.height = height
@@ -80,7 +82,7 @@ class DeepNav():
         return self.__state
     
     def step(self, actions):
-        pos = [self.sim.getAgentPosition(i) for i in range(self.n_agents)]
+        pos = [self.sim.getAgentPosition(i) for i in self.smarties]
         self.act(actions)
        
         self.sim.doStep()
@@ -101,12 +103,13 @@ class DeepNav():
         return 2
     # Utility functions
     def calculate_local_rwd(self, pos_old):
-        rwd = [0] * self.n_agents
+        rwd = [0] * self.n_smarties
         
-        for i in range(self.n_agents):
-            pos = self.sim.getAgentPosition(i)
-            dist = self.calculateDist(self.goals[i], pos)
-            o_dist = self.calculateDist(self.goals[i], pos_old[i])
+        for i, s in enumerate (self.smarties):
+            
+            pos = self.sim.getAgentPosition(s)
+            dist = self.calculateDist(self.goals[s], pos)
+            o_dist = self.calculateDist(self.goals[s], pos_old[i])
             rwd[i] -= dist - o_dist
         
             
@@ -123,7 +126,7 @@ class DeepNav():
         if self.T > self.H:
             self.success = False
             return True
-        for i in range(self.n_agents):
+        for i in self.smarties:
             if not self.agentDone(i):
                 self.success = False
                 return False
@@ -165,15 +168,22 @@ class DeepNav():
         if np.abs(final_pos[0]) > self.width or np.abs(final_pos[1]) > self.height:
             return (0, 0)
         return action
-    def setDiscreteActions(self, actions):
+    def setDiscreteActions(self, actions ):
         assert self.discrete
-        actions = tuple(actions)
-        for i, a in enumerate (actions):
+        
+        
+        for i in range(self.n_agents):
             
-            action = self.normalize(self.p_actions[a])
-            action = self.isLegal(i, np.array(action))
+            action = 0
+            if i in self.smarties:
+                a = actions.pop(0)
+                action = self.normalize(self.p_actions[a])
+                action = self.isLegal(i, np.array(action))
+            else:
+                action = self.getStraightVel(i)
+            
             self.sim.setAgentPrefVelocity(i, tuple(action))
-
+                
     def setContActions(self , actions):
         
         assert not self.discrete
@@ -194,7 +204,7 @@ class DeepNav():
         '''Return every agent position and pref vel'''
         return [
             self.getAgentFullState(i)
-            for i in range(self.n_agents)
+            for i in self.smarties
         ]
     def getSensorialState(self):
         return [
@@ -293,11 +303,11 @@ class DeepNav():
         
 
     def getBaseline(self):
-        print("LALA")
+        
         self.reset()
         t = 0
         td = 0
-        print(self.success)
+        #print(self.success)
         while not self.isDone():
 
             
@@ -314,12 +324,18 @@ class DeepNav():
         
         
         self.reset()
+        
         return t, td
         
 if __name__ == '__main__':
     #import matplotlib.pyplot as plt
-    env = DeepNav(2, 0)
-    
+    env = DeepNav(100, 2, 0)
+    s = env.reset()
+
+    print(s)
+    a = [2, 0]
+    s, r, truncate, done = env.step(a)
+    print(r)
     
     #print(env.reset())
     #print(env.time, env.T)

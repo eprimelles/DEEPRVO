@@ -47,25 +47,25 @@ class MADQN_TF:
     
     def train(self, env, replay_buffer, n_episodes):
 
+        
         s = env.reset()
         rwds = []
-        loss = [0, 0]
+        loss = [0] * self.n_agents
         losses = []
         for i in range(n_episodes):    
             while 1:
                 s_e = np.reshape(s, (1, len(s), len(s[0])))
                 a = self.policy(s_e)
                 
-                
-
-                
+                aa = a.copy()
                 s_1, rwd, success,  done = env.step(a)
                 
                 rwds.append(rwd)
-                replay_buffer.store(s, a, s_1, rwd, done)
+                
+                replay_buffer.store(s, aa, s_1, rwd, done)
 
                 s = s_1
-
+                
                 if replay_buffer.isReady():
                     
                     states, actions, rewards, states_1, dones = replay_buffer.sample()
@@ -105,4 +105,4 @@ class MADQN_TF:
             s, r, success, done = env.step(a)
             rwds.append(r)
 
-        print(f'Episode ended with Success: {success}, Mean RWD: {np.mean(rwds, axis=0)}')
+        print(f'Episode ended with Success: {success}, Mean RWD: {np.mean(rwds, axis=0)}, Time: {env.time}, Baseline: {env.baseline}')
